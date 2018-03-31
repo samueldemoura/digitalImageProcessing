@@ -22,7 +22,63 @@ def save_and_show(filename, img, save, show):
 		cv2.imshow('Output', img)
 		cv2.waitKey(0)
 		cv2.destroyAllWindows()
-
+# YIQ matrix values
+mYIQ = np.array([0.3, 0.59, 0.11, 0.599, -0.2773, -0.3217, 0.213, -0.5251, 0.3121]).reshape((3,3))
+mRGB = np.array([1,0.956,0.0621,1,-0.272,-0.647,1,-1.106,1.703]).reshape((3,3))
+@click.command()
+@click.argument('file')
+@click.option('--save/--dont-save', default=True)
+@click.option('--show', is_flag=True, default=False)
+def RGBtoYIQ(file, save, show):
+	"""(1.1) to YIQ."""
+	img = cv2.imread(file)
+	w = img.shape[0]
+	h = img.shape[1]
+	aux = []
+	for pixel in img.reshape((w*h,3)):
+		aux.append(mYIQ.dot(pixel))
+	imgYIQ = np.array(aux).reshape((w,h,3))
+	save_and_show(file,imgYIQ,save,show)	
+@click.command()
+@click.argument('file')
+@click.option('--save/--dont-save', default=True)
+@click.option('--show', is_flag=True, default=False)
+def YIQtoRGB(file, save, show):
+	"""(1.1) to RGB"""
+	img = cv2.imread(file)
+	w = img.shape[0]
+	h = img.shape[1]
+	aux = []
+	for pixel in img.reshape((h*w,3)):
+		new = mRGB.dot(pixel)
+		for j in range(len(new)):
+			if j > 255:
+				new[j] = 255
+			elif j < 0:
+				new[j] = 0
+		aux.append(new)
+		print(new)
+	imgYIQ = np.array(aux).reshape((w,h,3)).astype('int32')
+	save_and_show(file,imgYIQ,save,show)
+@click.command()
+@click.argument('file')
+@click.option('--save/--dont-save', default=True)
+@click.option('--show', is_flag=True, default=False)
+@click.option('-R', is_flag=True, default=False)
+@click.option('-G', is_flag=True, default=False)
+@click.option('-B', is_flag=True, default=False)
+def monocromatic(file,save,show,r,g,b):
+	"""(1.2) select a channel of color"""
+	img =  cv2.imread(file)
+	w = img.shape[0]
+	h = img.shape[1]
+	img = img.reshape((h*w,3))
+	for pixel in range(h*w):
+		img[pixel][0] = img[pixel][0] if b else 0
+		img[pixel][1] = img[pixel][1] if g else 0
+		img[pixel][2] = img[pixel][2] if r else 0
+	img = img.reshape((w,h,3))
+	save_and_show(file,img,save,show)
 @click.command()
 @click.argument('file')
 @click.option('--save/--dont-save', default=True)
@@ -142,12 +198,77 @@ def threshold(file, m, save, show):
 	            img.itemset(x, y, channel, new)
 
 	save_and_show(file, img, save, show)
-
+"""
+	The main operation to filters
+"""
+def convolution(m,ksize,operation):
+	step = 1 #there's a sort of problem to solve to implements others steps
+	h = m.shape[0]
+	w = m.shape[1]
+	x = ksize[0]
+	y = ksize[1]
+	border_x = x // 2
+	border_y = y // 2
+	print(w,h,x,y,border_x,border_y)
+	m0 = np.pad(m[:,:,0],pad_width=border_x,mode="edge")
+	m1 = np.pad(m[:,:,1],pad_width=border_x,mode="edge")
+	m2 = np.pad(m[:,:,2],pad_width=border_x,mode="edge")
+	kernel0 = np.zeros(x*y).reshape(ksize)
+	kernel1 = np.zeros(x*y).reshape(ksize)
+	kernel2 = np.zeros(x*y).reshape(ksize)
+	for i in range(h):
+		for j in range(w):
+			kernel0 = m0[i : i + y, j: j + x]
+			kernel1 = m1[i : i + y, j: j + x]
+			kernel2 = m2[i : i + y, j: j + x]
+			m[i,j,0] = operation(kernel0)
+			m[i,j,1] = operation(kernel1)
+			m[i,j,2] = operation(kernel2)
+	return m
+def mean(matrix):
+	return matrix.mean()
+def median(matrix):
+	return np.median(matrix)
+def sobel(matrix):
+	sobel = np.array([1,0,-1,2,0,-2,1,0,-1])
+	matrix = matrix.reshape(matrix.shape[0] * matrix.shape[1]).astype('float64')
+	matrix = matrix ** sobel
+	r = matrix.astype('int32').sum()
+	return 255 - r if r < 256 else 0
+def laplacian(matrix):
+	laplac = np.array([0,-1,0,-1,4,-1,0,-1,0]).reshape((3,3))
+	matrix = matrix.astype('float64')
+	matrix = matrix ** laplac
+	r = matrix.astype('int32').sum()
+	return 255 - r if r < 265 else 0
+@click.command()
+@click.argument('file')
+@click.argument('operation', default='mean')
+@click.argument('size', default=3)
+@click.option('--save/--dont-save', default=True)
+@click.option('--show', is_flag=True, default=False)
+def applyfilter(file,operation,size,save,show):
+	"""(1.5 and 1.6) filters"""
+	print(operation)
+	img = cv2.imread(file)
+	size = (size,size)
+	if operation == 'mean':
+		img = convolution(img,size,mean)
+	elif operation == 'median':
+		img = convolution(img,size,median)
+	elif operation == 'sobel':
+		img = convolution(img,size,sobel)
+	elif operation == 'lapla':
+		img = convolution(img,size,laplacian)
+	save_and_show(file,img,save,show)
 # Add command line options
 main.add_command(invert)
 main.add_command(brightness_add)
 main.add_command(brightness_mult)
 main.add_command(threshold)
-
+main.add_command(RGBtoYIQ)
+main.add_command(YIQtoRGB)
+main.add_command(monocromatic)
+main.add_command(applyfilter)
 if __name__ == '__main__':
 	main()
