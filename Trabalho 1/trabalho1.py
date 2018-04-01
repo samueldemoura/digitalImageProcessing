@@ -8,9 +8,13 @@ def main():
 	"""Application entry point."""
 	pass
 
-def save_and_show(filename, img, save, show):
-	"""Save image to disk and show it if parameters are true."""
-	if save:
+def save_and_show(filename, img, show):
+	"""Save image to disk or show it onscreen if parameter is true."""
+	if show:
+		cv2.imshow('Output', img)
+		cv2.waitKey(0)
+		cv2.destroyAllWindows()
+	else:
 		cv2.imwrite(
 			'{0}_processed.{1}'.format(
 				filename[:filename.rfind('.')],
@@ -18,34 +22,38 @@ def save_and_show(filename, img, save, show):
 				),
 			img)
 
-	if show:
-		cv2.imshow('Output', img)
-		cv2.waitKey(0)
-		cv2.destroyAllWindows()
 # YIQ matrix values
 mYIQ = np.array([0.3, 0.59, 0.11, 0.599, -0.2773, -0.3217, 0.213, -0.5251, 0.3121]).reshape((3,3))
 mRGB = np.array([1,0.956,0.0621,1,-0.272,-0.647,1,-1.106,1.703]).reshape((3,3))
+
 @click.command()
 @click.argument('file')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-def RGBtoYIQ(file, save, show):
+def RGBtoYIQ(file, show):
 	"""(1.1) to YIQ."""
 	img = cv2.imread(file)
+	imgYIQ = RGBtoYIQinternal(img)
+	save_and_show(file, imgYIQ, show)
+
+def RGBtoYIQinternal(img):
 	w = img.shape[0]
 	h = img.shape[1]
 	aux = []
 	for pixel in img.reshape((w*h,3)):
 		aux.append(mYIQ.dot(pixel))
 	imgYIQ = np.array(aux).reshape((w,h,3))
-	save_and_show(file,imgYIQ,save,show)	
+	return imgYIQ
+
 @click.command()
 @click.argument('file')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-def YIQtoRGB(file, save, show):
+def YIQtoRGB(file, show):
 	"""(1.1) to RGB"""
 	img = cv2.imread(file)
+	imgRGB = YIQtoRGBinternal(img)
+	save_and_show(file, imgRGB, show)
+
+def YIQtoRGBinternal(img):
 	w = img.shape[0]
 	h = img.shape[1]
 	aux = []
@@ -57,17 +65,18 @@ def YIQtoRGB(file, save, show):
 			elif j < 0:
 				new[j] = 0
 		aux.append(new)
-		print(new)
-	imgYIQ = np.array(aux).reshape((w,h,3)).astype('int32')
-	save_and_show(file,imgYIQ,save,show)
+
+	imgRGB = np.array(aux).reshape((w,h,3)).astype('int32')
+	return imgRGB
+
 @click.command()
 @click.argument('file')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-@click.option('-R', is_flag=True, default=False)
-@click.option('-G', is_flag=True, default=False)
-@click.option('-B', is_flag=True, default=False)
-def monocromatic(file,save,show,r,g,b):
+@click.option('-r', is_flag=True, default=False)
+@click.option('-g', is_flag=True, default=False)
+@click.option('-b', is_flag=True, default=False)
+@click.option('-grayscale', is_flag=True, default=False)
+def monochromatic(file, show, r, g, b, grayscale):
 	"""(1.2) select a channel of color"""
 	img =  cv2.imread(file)
 	w = img.shape[0]
@@ -78,33 +87,54 @@ def monocromatic(file,save,show,r,g,b):
 		img[pixel][1] = img[pixel][1] if g else 0
 		img[pixel][2] = img[pixel][2] if r else 0
 	img = img.reshape((w,h,3))
-	save_and_show(file,img,save,show)
+
+	if grayscale:
+		img = img.reshape((h*w,3))
+		for pixel in range(w*h):
+			rgb_sum = (img[pixel][0] + img[pixel][1] + img[pixel][2])
+
+			img[pixel][0] = rgb_sum
+			img[pixel][1] = rgb_sum
+			img[pixel][2] = rgb_sum
+		img = img.reshape((w,h,3))
+	
+	save_and_show(file, img, show)
+
 @click.command()
 @click.argument('file')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-def invert(file, save, show):
+@click.option('-yiq', is_flag=True, default=False)
+def invert(file, show, yiq):
 	"""(1.3) Invert colors."""
 	img = cv2.imread(file)
+
+	if yiq:
+		img = RGBtoYIQinternal(img)
+		channels = 1
+	else:
+		channels = 3
 
 	width = img.shape[0]
 	height = img.shape[1]
 
 	for x in range(1, width-1):
-	    for y in range(1, height-1):
-	        for channel in range (0, 3):
-	            original = img.item(x, y, channel)
-	            new = 255 - original
-	            img.itemset(x, y, channel, new)
+		for y in range(1, height-1):
+			for channel in range (0, channels):
+				original = img.item(x, y, channel)
+				new = 255 - original
+				img.itemset(x, y, channel, new)
 
-	save_and_show(file, img, save, show)
+	if yiq:
+		img = YIQtoRGBinternal(img)
+
+	save_and_show(file, img, show)
 
 @click.command()
 @click.argument('file')
 @click.argument('c')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-def brightness_add(file, c, save, show):
+@click.option('-yiq', is_flag=True, default=False)
+def brightness_add(file, c, show, yiq):
 	"""(1.4) Brightness control by adding."""
 	try:
 		c = int(c)
@@ -113,28 +143,38 @@ def brightness_add(file, c, save, show):
 		return
 
 	img = cv2.imread(file)
+
+	if yiq:
+		img = RGBtoYIQinternal(img)
+		channels = 1
+	else:
+		channels = 3
+
 	width = img.shape[0]
 	height = img.shape[1]
 
 	for x in range(1, width-1):
-	    for y in range(1, height-1):
-	        for channel in range (0, 3):
-	            original = img.item(x, y, channel)
-	            new = original + c
+		for y in range(1, height-1):
+			for channel in range (0, channels):
+				original = img.item(x, y, channel)
+				new = original + c
 
-	            if new > 255:
-	            	new = 255
+				if new > 255:
+					new = 255
 
-	            img.itemset(x, y, channel, new)
+				img.itemset(x, y, channel, new)
 
-	save_and_show(file, img, save, show)
+	if yiq:
+		img = YIQtoRGBinternal(img)
+
+	save_and_show(file, img, show)
 
 @click.command()
 @click.argument('file')
 @click.argument('c')
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
-def brightness_mult(file, c, save, show):
+@click.option('-yiq', is_flag=True, default=False)
+def brightness_mult(file, c, show, yiq):
 	"""(1.4) Brightness control by multiplying."""
 	try:
 		c = float(c)
@@ -146,32 +186,50 @@ def brightness_mult(file, c, save, show):
 		return
 
 	img = cv2.imread(file)
+
+	if yiq:
+		img = RGBtoYIQinternal(img)
+		channels = 1
+	else:
+		channels = 3
+
 	width = img.shape[0]
 	height = img.shape[1]
 
 	for x in range(1, width-1):
-	    for y in range(1, height-1):
-	        for channel in range (0, 3):
-	            original = img.item(x, y, channel)
-	            new = original * c
+		for y in range(1, height-1):
+			for channel in range (0, channels):
+				original = img.item(x, y, channel)
+				new = original * c
 
-	            if new > 255:
-	            	new = 255
+				if new > 255:
+					new = 255
 
-	            img.itemset(x, y, channel, new)
+				img.itemset(x, y, channel, new)
 
-	save_and_show(file, img, save, show)
+	if yiq:
+		img = YIQtoRGBinternal(img)
+
+	save_and_show(file, img, show)
 
 @click.command()
 @click.argument('file')
-@click.option('-m', default='None')
-@click.option('--save/--dont-save', default=True)
+@click.option('-m', default=None)
 @click.option('--show', is_flag=True, default=False)
-def threshold(file, m, save, show):
+def threshold(file, m, show):
 	"""(1.4) Threshold."""
-	if m == None:
-		print('Must calculate m')
-		return
+	img = cv2.imread(file)
+	img = RGBtoYIQinternal(img)
+	width = img.shape[0]
+	height = img.shape[1]
+
+	if not m:
+		y_sum = 0
+		for x in range(1, width-1):
+			for y in range(1, height-1):
+				y_sum += img.item(x, y, 0)
+
+		m = y_sum / (width * height)
 
 	try:
 		m = int(m)
@@ -182,26 +240,21 @@ def threshold(file, m, save, show):
 		print('ERROR: m must be a positive integer.')
 		return
 
-	img = cv2.imread(file)
-	width = img.shape[0]
-	height = img.shape[1]
-
 	for x in range(1, width-1):
-	    for y in range(1, height-1):
-	        for channel in range (0, 3):
-	            original = img.item(x, y, channel)
-	            if original > m:
-	            	new = 255
-	            else:
-	            	new = 0
+		for y in range(1, height-1):
+			original = img.item(x, y, 0)
+			if original > m:
+				new = original
+			else:
+				new = 0
 
-	            img.itemset(x, y, channel, new)
+			img.itemset(x, y, 0, new)
 
-	save_and_show(file, img, save, show)
-"""
-	The main operation to filters
-"""
+	img = YIQtoRGBinternal(img)
+	save_and_show(file, img, show)
+
 def convolution(m,ksize,operation):
+	"""The main operation for filtering."""
 	step = 1 #there's a sort of problem to solve to implements others steps
 	h = m.shape[0]
 	w = m.shape[1]
@@ -225,27 +278,31 @@ def convolution(m,ksize,operation):
 			m[i,j,1] = operation(kernel1)
 			m[i,j,2] = operation(kernel2)
 	return m
+
 def mean(matrix):
 	return matrix.mean()
+
 def median(matrix):
 	return np.median(matrix)
+
 def sobel(matrix):
 	sobel = np.array([1,0,-1,2,0,-2,1,0,-1])
 	matrix = matrix.reshape(matrix.shape[0] * matrix.shape[1]).astype('float64')
 	matrix = matrix ** sobel
 	r = matrix.astype('int32').sum()
 	return 255 - r if r < 256 else 0
+
 def laplacian(matrix):
 	laplac = np.array([0,-1,0,-1,4,-1,0,-1,0]).reshape((3,3))
 	matrix = matrix.astype('float64')
 	matrix = matrix ** laplac
 	r = matrix.astype('int32').sum()
 	return 255 - r if r < 265 else 0
+
 @click.command()
 @click.argument('file')
 @click.argument('operation', default='mean')
 @click.argument('size', default=3)
-@click.option('--save/--dont-save', default=True)
 @click.option('--show', is_flag=True, default=False)
 def applyfilter(file,operation,size,save,show):
 	"""(1.5 and 1.6) filters"""
@@ -261,6 +318,7 @@ def applyfilter(file,operation,size,save,show):
 	elif operation == 'lapla':
 		img = convolution(img,size,laplacian)
 	save_and_show(file,img,save,show)
+
 # Add command line options
 main.add_command(invert)
 main.add_command(brightness_add)
@@ -268,7 +326,8 @@ main.add_command(brightness_mult)
 main.add_command(threshold)
 main.add_command(RGBtoYIQ)
 main.add_command(YIQtoRGB)
-main.add_command(monocromatic)
+main.add_command(monochromatic)
 main.add_command(applyfilter)
+
 if __name__ == '__main__':
 	main()
