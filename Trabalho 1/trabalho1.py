@@ -22,26 +22,37 @@ def save_and_show(filename, img, show):
 				),
 			img)
 
-# YIQ matrix values
-mYIQ = np.array([0.3, 0.59, 0.11, 0.599, -0.2773, -0.3217, 0.213, -0.5251, 0.3121]).reshape((3,3))
-mRGB = np.array([1,0.956,0.0621,1,-0.272,-0.647,1,-1.106,1.703]).reshape((3,3))
+# YIQ<->RGB conversion matrix values
+mYIQ = np.array([
+    0.299,  0.587,  0.114,
+    0.596, -0.274, -0.322,
+    0.211, -0.523,  0.312
+	]).reshape((3,3))
+
+mRGB = np.array([
+	1,  0.956,  0.0621,
+	1, -0.272, -0.6470,
+	1, -1.106,  1.7030
+	]).reshape((3,3))
 
 @click.command()
 @click.argument('file')
 @click.option('--show', is_flag=True, default=False)
 def RGBtoYIQ(file, show):
 	"""(1.1) to YIQ."""
-	img = cv2.imread(file)
-	imgYIQ = RGBtoYIQinternal(img)
-	save_and_show(file, imgYIQ, show)
+	img = RGBtoYIQinternal(cv2.imread(file))
+	save_and_show(file, img, show)
 
 def RGBtoYIQinternal(img):
 	w = img.shape[0]
 	h = img.shape[1]
 	aux = []
-	for pixel in img.reshape((w*h,3)):
-		aux.append(mYIQ.dot(pixel))
-	imgYIQ = np.array(aux).reshape((w,h,3))
+
+	for pixel in img.reshape((w * h, 3)):
+		result = np.dot(mYIQ, pixel / 255)
+		aux.append(result)
+
+	imgYIQ = np.array(aux).reshape((w, h, 3)).astype('float64')
 	return imgYIQ
 
 @click.command()
@@ -49,21 +60,23 @@ def RGBtoYIQinternal(img):
 @click.option('--show', is_flag=True, default=False)
 def YIQtoRGB(file, show):
 	"""(1.1) to RGB"""
-	img = cv2.imread(file)
-	imgRGB = YIQtoRGBinternal(img)
-	save_and_show(file, imgRGB, show)
+	img = YIQtoRGBinternal(cv2.imread(file))
+	save_and_show(file, img, show)
 
 def YIQtoRGBinternal(img):
 	w = img.shape[0]
 	h = img.shape[1]
 	aux = []
-	for pixel in img.reshape((h*w,3)):
-		new = mRGB.dot(pixel)
+
+	for pixel in img.reshape((w * h, 3)):
+		new = np.dot(mRGB, pixel) * 255
+
 		for j in range(len(new)):
-			if j > 255:
+			if new[j] > 255:
 				new[j] = 255
-			elif j < 0:
+			elif new[j] < 0:
 				new[j] = 0
+
 		aux.append(new)
 
 	imgRGB = np.array(aux).reshape((w,h,3)).astype('int32')
@@ -111,8 +124,10 @@ def invert(file, show, yiq):
 	if yiq:
 		img = RGBtoYIQinternal(img)
 		channels = 1
+		max_value = 1
 	else:
 		channels = 3
+		max_value = 255
 
 	width = img.shape[0]
 	height = img.shape[1]
@@ -121,7 +136,7 @@ def invert(file, show, yiq):
 		for y in range(1, height-1):
 			for channel in range (0, channels):
 				original = img.item(x, y, channel)
-				new = 255 - original
+				new = max_value - original
 				img.itemset(x, y, channel, new)
 
 	if yiq:
@@ -297,14 +312,14 @@ def laplacian(matrix):
 	matrix = matrix.astype('float64')
 	matrix = matrix ** laplac
 	r = matrix.astype('int32').sum()
-	return 255 - r if r < 265 else 0
+	return 255 - r if r < 256 else 0
 
 @click.command()
 @click.argument('file')
 @click.argument('operation', default='mean')
 @click.argument('size', default=3)
 @click.option('--show', is_flag=True, default=False)
-def applyfilter(file,operation,size,save,show):
+def filter(file,operation,size,show):
 	"""(1.5 and 1.6) filters"""
 	print(operation)
 	img = cv2.imread(file)
@@ -314,10 +329,19 @@ def applyfilter(file,operation,size,save,show):
 	elif operation == 'median':
 		img = convolution(img,size,median)
 	elif operation == 'sobel':
+		if size != (3,3):
+			print('WARNING: Sobel filter only works with a 3x3 kernel size.')
+			size = (3,3)
+
 		img = convolution(img,size,sobel)
 	elif operation == 'lapla':
+		if size != (3,3):
+			print('WARNING: Laplacian filter only works with a 3x3 kernel size.')
+			size = (3,3)
+
 		img = convolution(img,size,laplacian)
-	save_and_show(file,img,save,show)
+
+	save_and_show(file,img,show)
 
 # Add command line options
 main.add_command(invert)
@@ -327,7 +351,7 @@ main.add_command(threshold)
 main.add_command(RGBtoYIQ)
 main.add_command(YIQtoRGB)
 main.add_command(monochromatic)
-main.add_command(applyfilter)
+main.add_command(filter)
 
 if __name__ == '__main__':
 	main()
