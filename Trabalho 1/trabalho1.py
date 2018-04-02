@@ -190,7 +190,7 @@ def brightness_add(file, c, show, yiq):
 @click.option('--show', is_flag=True, default=False)
 @click.option('-yiq', is_flag=True, default=False)
 def brightness_mult(file, c, show, yiq):
-	"""(1.4) Brightness control by multiplying."""
+	"""(1.5) Brightness control by multiplying."""
 	try:
 		c = float(c)
 
@@ -232,7 +232,7 @@ def brightness_mult(file, c, show, yiq):
 @click.option('-m', default=None)
 @click.option('--show', is_flag=True, default=False)
 def threshold(file, m, show):
-	"""(1.4) Threshold."""
+	"""(1.6) Threshold."""
 	img = cv2.imread(file)
 	img = RGBtoYIQinternal(img)
 	width = img.shape[0]
@@ -244,17 +244,20 @@ def threshold(file, m, show):
 			for y in range(1, height-1):
 				y_sum += img.item(x, y, 0)
 
+		print(y_sum)
 		m = y_sum / (width * height)
 
-	try:
-		m = int(m)
+	else:
+		try:
+			m = int(m)
 
-		if m < 0:
-			raise ValueError
-	except ValueError:
-		print('ERROR: m must be a positive integer.')
-		return
+			if m < 0:
+				raise ValueError
+		except ValueError:
+			print('ERROR: m must be a positive integer.')
+			return
 
+	print(m)
 	for x in range(1, width-1):
 		for y in range(1, height-1):
 			original = img.item(x, y, 0)
