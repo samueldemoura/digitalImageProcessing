@@ -317,6 +317,31 @@ def laplacian(matrix):
 	r = matrix.astype('int32').sum()
 	return 255 - r if r < 256 else 0
 
+def sharpen(matrix):
+	sharpen = np.array([
+		 0, -1,  0,
+		-1,  5, -1,
+		 0, -1,  0
+		]).reshape((3, 3))
+
+	matrix = np.dot(matrix, sharpen)
+	r = matrix.sum()
+
+	# TODO: Don't divide by 3 when normalization is implemented in convolution
+	return r/3
+
+def surprise(matrix):
+	m = np.array([
+		 0,  0,  0,
+		 0,  1,  0,
+		 0,  0, -1
+		]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return r
+
 @click.command()
 @click.argument('file')
 @click.argument('operation', default='mean')
@@ -343,6 +368,10 @@ def filter(file,operation,size,show):
 			size = (3,3)
 
 		img = convolution(img,size,laplacian)
+	elif operation == 'sharpen':
+		img = convolution(img, (3, 3), sharpen)
+	elif operation == 'surprise':
+		img = convolution(img, (3, 3), surprise)
 
 	save_and_show(file,img,show)
 
