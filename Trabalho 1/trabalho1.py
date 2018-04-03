@@ -284,17 +284,11 @@ def convolution(m,ksize,operation):
 	m0 = np.pad(m[:,:,0],pad_width=border_x,mode="edge")
 	m1 = np.pad(m[:,:,1],pad_width=border_x,mode="edge")
 	m2 = np.pad(m[:,:,2],pad_width=border_x,mode="edge")
-	kernel0 = np.zeros(x*y).reshape(ksize)
-	kernel1 = np.zeros(x*y).reshape(ksize)
-	kernel2 = np.zeros(x*y).reshape(ksize)
 	for i in range(h):
 		for j in range(w):
-			kernel0 = m0[i : i + y, j: j + x]
-			kernel1 = m1[i : i + y, j: j + x]
-			kernel2 = m2[i : i + y, j: j + x]
-			m[i,j,0] = operation(kernel0)
-			m[i,j,1] = operation(kernel1)
-			m[i,j,2] = operation(kernel2)
+			m[i,j,0] = np.clip(operation(m0[i : i + y, j: j + x]),0,255)
+			m[i,j,1] = np.clip(operation(m1[i : i + y, j: j + x]),0,255)
+			m[i,j,2] = np.clip(operation(m2[i : i + y, j: j + x]),0,255)
 	return m
 
 def mean(matrix):
@@ -304,18 +298,19 @@ def median(matrix):
 	return np.median(matrix)
 
 def sobel(matrix):
-	sobel = np.array([1,0,-1,2,0,-2,1,0,-1])
-	matrix = matrix.reshape(matrix.shape[0] * matrix.shape[1]).astype('float64')
-	matrix = matrix ** sobel
-	r = matrix.astype('int32').sum()
-	return 255 - r if r < 256 else 0
+	kernel_size = 1
+	sobel_x = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+	sobel_y = sobel_x.transpose()
+	matrix_x = np.multiply(matrix, sobel_x)
+	matrix_y = np.multiply(matrix, sobel_y)
+	Gx = (matrix_x).sum() // kernel_size
+	Gy = (matrix_y).sum() // kernel_size
+	return int(np.sqrt((Gx ** 2) + (Gy ** 2)))
 
 def laplacian(matrix):
-	laplac = np.array([0,-1,0,-1,4,-1,0,-1,0]).reshape((3,3))
-	matrix = matrix.astype('float64')
-	matrix = matrix ** laplac
-	r = matrix.astype('int32').sum()
-	return 255 - r if r < 256 else 0
+	kernel_size = 9
+	laplac = np.array([[0,1,0],[1,-4,1],[0,1,0]])
+	return np.multiply(matrix, laplac).sum()
 
 def sharpen(matrix):
 	sharpen = np.array([
@@ -328,7 +323,7 @@ def sharpen(matrix):
 	r = matrix.sum()
 
 	# TODO: Don't divide by 3 when normalization is implemented in convolution
-	return r/3
+	return int(r/3)
 
 def surprise(matrix):
 	m = np.array([
