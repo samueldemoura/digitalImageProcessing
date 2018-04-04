@@ -152,9 +152,12 @@ def invert(file, show, yiq):
 def brightness_add(file, c, show, yiq):
 	"""(1.4) Brightness control by adding."""
 	try:
-		c = int(c)
+		if yiq:
+			c = float(c)
+		else:
+			c = int(c)
 	except ValueError:
-		print('ERROR: c must be an integer.')
+		print('ERROR: c must be an integer (for RGB) or a float (for YIQ).')
 		return
 
 	img = cv2.imread(file)
@@ -249,12 +252,12 @@ def threshold(file, m, show):
 
 	else:
 		try:
-			m = int(m)
+			m = float(m)
 
 			if m < 0:
 				raise ValueError
 		except ValueError:
-			print('ERROR: m must be a positive integer.')
+			print('ERROR: m must be a positive float.')
 			return
 
 	print(m)
