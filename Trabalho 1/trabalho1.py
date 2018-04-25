@@ -340,6 +340,90 @@ def surprise(matrix):
 
 	return r
 
+def border1(matrix):
+	m = np.array([
+		-0.125, -0.125, -0.125,
+		-0.125,      1, -0.125,
+		-0.125, -0.125, -0.125
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return r
+
+def border2(matrix):
+	m = np.array([
+		-1, -1, -1,
+		 0,  0,  0,
+		 1,  1,  1
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return int(r/3)
+
+def border3(matrix):
+	m = np.array([
+		-1,  0,  1,
+		-1,  0,  1,
+		-1,  0,  1
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return r
+
+def border4(matrix):
+	m = np.array([
+		-1, -1,  0,
+		-1,  0,  1,
+		 0,  1,  1
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return int(r/3)
+
+def emboss1(matrix):
+	m = np.array([
+		 0,  0,  0,
+		 0,  1,  0,
+		 0,  0, -1
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return r
+
+def emboss2(matrix):
+	m = np.array([
+		 0,  0, -1,
+		 0,  1,  0,
+		 0,  0,  0
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return r
+
+def emboss3(matrix):
+	m = np.array([
+		 0,  0,  2,
+		 0, -1,  0,
+		-1,  0,  0
+		 ]).reshape((3, 3))
+
+	matrix = np.dot(matrix, m)
+	r = matrix.sum()
+
+	return int(r/2)
+
 @click.command()
 @click.argument('file')
 @click.argument('operation', default='mean')
@@ -370,6 +454,22 @@ def filter(file,operation,size,show):
 		img = convolution(img, (3, 3), sharpen)
 	elif operation == 'surprise':
 		img = convolution(img, (3, 3), surprise)
+
+	elif operation == 'border1':
+		img = convolution(img, (3, 3), border1)
+	elif operation == 'border2':
+		img = convolution(img, (3, 3), border2)
+	elif operation == 'border3':
+		img = convolution(img, (3, 3), border3)
+	elif operation == 'border4':
+		img = convolution(img, (3, 3), border4)
+
+	elif operation == 'emboss1':
+		img = convolution(img, (3, 3), emboss1)
+	elif operation == 'emboss2':
+		img = convolution(img, (3, 3), emboss2)
+	elif operation == 'emboss3':
+		img = convolution(img, (3, 3), emboss3)
 
 	save_and_show(file,img,show)
 
