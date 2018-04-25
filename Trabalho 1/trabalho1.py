@@ -473,6 +473,47 @@ def filter(file,operation,size,show):
 
 	save_and_show(file,img,show)
 
+
+@click.command()
+@click.argument('file')
+@click.option('--show', is_flag=True, default=False)
+def extension(file, show):
+    img =  cv2.imread(file)
+    w = img.shape[0]
+    h = img.shape[1]
+    n_max = [0 for i in range(3)]
+    n_min = [255 for i in range(3)]
+    L = 256
+
+    img = img.reshape((w*h), 3)
+    for pixel in range(w*h):
+        if n_max[0] < img[pixel][0]:
+            n_max[0] = img[pixel][0]
+
+        if n_max[1] < img[pixel][1]:
+            n_max[1] = img[pixel][1]
+
+        if n_max[2] < img[pixel][2]:
+            n_max[2] = img[pixel][2]
+
+        if n_min[0] > img[pixel][0]:
+            n_min[0] = img[pixel][0]
+
+        if n_min[1] > img[pixel][1]:
+            n_min[1] = img[pixel][1]
+
+        if n_min[2] > img[pixel][2]:
+            n_min[2] = img[pixel][2]
+
+    for pixel in range(w*h):
+        img[pixel][0] = round(((img[pixel][0] - n_min[0])/(n_max[0] - n_min[0])) * (L - 1))
+        img[pixel][1] = round(((img[pixel][1] - n_min[1])/(n_max[1] - n_min[1])) * (L - 1))
+        img[pixel][2] = round(((img[pixel][2] - n_min[2])/(n_max[2] - n_min[2])) * (L - 1))
+
+    img = img.reshape((w,h,3))
+    save_and_show(file, img, show)
+
+
 # Add command line options
 main.add_command(invert)
 main.add_command(brightness_add)
@@ -482,6 +523,7 @@ main.add_command(RGBtoYIQ)
 main.add_command(YIQtoRGB)
 main.add_command(monochromatic)
 main.add_command(filter)
+main.add_command(extension)
 
 if __name__ == '__main__':
 	main()
